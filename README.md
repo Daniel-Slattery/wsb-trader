@@ -1,36 +1,151 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WSB Trader
 
-## Getting Started
+A forward-testing AI stock trading simulator. No real money, no real trades — pure paper trading to see how well Reddit hype + news sentiment predict short-term stock moves.
 
-First, run the development server:
+Every weekday the system scrapes r/wallstreetbets and financial news, feeds the signals into GPT-4o, simulates a $2,000 position in the top pick, holds for 5 trading days, then closes it and logs the P&L.
+
+## How it works
+
+Two processes share a SQLite database:
+
+- **Worker** (`worker.ts`) — runs two daily cron jobs:
+  - `8:30am ET` — scrapes WSB hot posts + NewsAPI headlines, calls GPT-4o to rank the top 5 tickers, saves the result
+  - `9:35am ET` — checks for positions due to close (5 trading days elapsed), records sells, simulates today's buy at the opening price via yahoo-finance2, takes an equity snapshot
+
+- **Next.js app** — read-only dashboard at `localhost:3000` showing equity growth, open positions with live P&L, today's AI pick, trade history, and agent run logs
+
+Both start with a single `npm run dev`.
+
+## Stack
+
+| Concern | Tech |
+|---|---|
+| Framework | Next.js 15 (App Router, SSR) |
+| Database | SQLite via better-sqlite3 + Drizzle ORM |
+| Reddit | snoowrap (OAuth) |
+| News | NewsAPI.org |
+| Prices | yahoo-finance2 |
+| AI | OpenAI GPT-4o (`response_format: json_object`) |
+| Scheduler | node-cron |
+| Charts | Recharts |
+| Styling | Tailwind CSS 4 |
+
+## Setup
+
+**1. Clone and install**
+
+```bash
+git clone https://github.com/Daniel-Slattery/wsb-trader.git
+cd wsb-trader
+npm install
+```
+
+**2. Configure environment**
+
+```bash
+cp .env.local.example .env.local
+```
+
+Fill in `.env.local`:
+
+```bash
+# Reddit — create an app at https://www.reddit.com/prefs/apps (script type)
+REDDIT_CLIENT_ID=
+REDDIT_CLIENT_SECRET=
+REDDIT_USERNAME=
+REDDIT_PASSWORD=
+
+# https://newsapi.org — free tier is 100 requests/day
+NEWS_API_KEY=
+
+# https://platform.openai.com
+OPENAI_API_KEY=
+
+# Simulator config
+STARTING_EQUITY=10000
+NEXT_PUBLIC_STARTING_EQUITY=10000
+DATABASE_URL=./wsb-trader.db
+CRON_TIMEZONE=America/New_York
+```
+
+**3. Initialise the database**
+
+```bash
+npm run db:migrate
+```
+
+**4. Start**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Opens the dashboard at [http://localhost:3000](http://localhost:3000). The worker process starts alongside it and waits for the next scheduled cron.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**5. Trigger a manual run (optional)**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+To test the full pipeline immediately without waiting for the crons:
 
-## Learn More
+```bash
+npm run worker:run
+```
 
-To learn more about Next.js, take a look at the following resources:
+This runs the complete analysis → buy → equity snapshot cycle right now. Requires real API keys.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Dashboard pages
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Route | Description |
+|---|---|
+| `/` | Equity chart, stat cards, today's pick, open positions |
+| `/trades` | All closed trades with P&L |
+| `/agent-logs` | Expandable log of every GPT-4o analysis run |
 
-## Deploy on Vercel
+## Simulator rules
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Starting equity:** $10,000 (configurable via `STARTING_EQUITY`)
+- **Position size:** 20% of starting equity = $2,000 fixed per trade
+- **Max open positions:** 5
+- **Hold period:** exactly 5 trading days (NYSE holidays excluded)
+- **Buy price:** market price at ~9:35am ET on entry day
+- **Sell price:** market price at ~9:35am ET on exit day
+- **One buy per day maximum**
+- Buy is skipped if all 5 slots are occupied or cash is insufficient
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project structure
+
+```
+wsb-trader/
+├── src/
+│   ├── app/
+│   │   ├── page.tsx                    # Dashboard
+│   │   ├── trades/page.tsx             # Trade history
+│   │   ├── agent-logs/page.tsx         # Agent logs
+│   │   └── api/                        # portfolio, trades, equity-history, agent-runs
+│   ├── db/                             # Drizzle schema + SQLite client
+│   ├── lib/
+│   │   ├── ticker-parser.ts            # Regex + blocklist ticker extraction
+│   │   ├── trading-days.ts             # NYSE holiday list, trading day arithmetic
+│   │   ├── reddit.ts                   # WSB hot post scraper
+│   │   ├── news.ts                     # NewsAPI fetcher
+│   │   ├── prices.ts                   # yahoo-finance2 wrapper
+│   │   ├── agent.ts                    # GPT-4o prompt + JSON response parser
+│   │   └── trade-engine.ts             # Buy/sell simulation, equity snapshot
+│   └── components/                     # React UI components
+├── worker.ts                           # Cron jobs
+├── scripts/run-worker-now.ts           # Manual pipeline trigger
+└── tests/                              # Jest unit tests (18 tests)
+```
+
+## Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start Next.js + worker together |
+| `npm test` | Run unit tests |
+| `npm run worker:run` | Trigger full pipeline immediately |
+| `npm run db:generate` | Regenerate Drizzle migrations after schema changes |
+| `npm run db:migrate` | Apply pending migrations |
+
+## Disclaimer
+
+This is a simulation. It does not place real trades and does not constitute financial advice. Past simulated performance has no bearing on real market outcomes.
