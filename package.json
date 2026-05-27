@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev --turbopack\" \"tsx watch worker.ts\"",
+    "dev": "concurrently \"next dev --turbopack\" \"tsx --env-file=.env.local watch worker.ts\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "worker:run": "tsx scripts/run-worker-now.ts"
+    "worker:run": "tsx --env-file=.env.local scripts/run-worker-now.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",
