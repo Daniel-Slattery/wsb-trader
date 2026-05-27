@@ -70,13 +70,38 @@ CRON_TIMEZONE=America/New_York
 npm run db:migrate
 ```
 
-**4. Start**
+**4. Start (development)**
 
 ```bash
 npm run dev
 ```
 
 Opens the dashboard at [http://localhost:3000](http://localhost:3000). The worker process starts alongside it and waits for the next scheduled cron.
+
+**4. Start (production / always-on PC — recommended)**
+
+Use PM2 to run both processes as background daemons that survive terminal closes and auto-restart on crash.
+
+```bash
+# Install PM2 once globally
+npm install -g pm2
+
+# Build and start both processes
+npm run pm2:start
+
+# Make PM2 restart automatically on system reboot
+pm2 startup   # follow the printed instruction (one sudo command)
+pm2 save
+```
+
+Useful PM2 commands:
+
+```bash
+npm run pm2:status    # see both processes and their uptime
+npm run pm2:logs      # tail live logs from both processes
+npm run pm2:restart   # restart after a config/code change
+npm run pm2:stop      # stop both processes
+```
 
 **5. Trigger a manual run (optional)**
 
