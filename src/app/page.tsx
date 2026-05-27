@@ -57,11 +57,11 @@ async function getDashboardData() {
   const cash = latestSnapshot?.cash ?? startingEquity;
   const totalEquity = latestSnapshot?.totalEquity ?? startingEquity;
 
-  return { snapshots, enrichedPositions, tradingDaysLeft, winRate, parsedRun, cash, totalEquity };
+  return { snapshots, enrichedPositions, tradingDaysLeft, winRate, parsedRun, cash, totalEquity, startingEquity };
 }
 
 export default async function DashboardPage() {
-  const { snapshots, enrichedPositions, tradingDaysLeft, winRate, parsedRun, cash, totalEquity } =
+  const { snapshots, enrichedPositions, tradingDaysLeft, winRate, parsedRun, cash, totalEquity, startingEquity } =
     await getDashboardData();
 
   return (
@@ -73,6 +73,7 @@ export default async function DashboardPage() {
           cash={cash}
           openPositions={enrichedPositions.length}
           winRate={winRate}
+          startingEquity={startingEquity}
         />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
           <div className="lg:col-span-2">

@@ -3,10 +3,10 @@ interface StatCardsProps {
   cash: number;
   openPositions: number;
   winRate: number | null;
+  startingEquity: number;
 }
 
-export function StatCards({ totalEquity, cash, openPositions, winRate }: StatCardsProps) {
-  const startingEquity = parseFloat(process.env.NEXT_PUBLIC_STARTING_EQUITY ?? '10000');
+export function StatCards({ totalEquity, cash, openPositions, winRate, startingEquity }: StatCardsProps) {
   const allTimeReturn = ((totalEquity - startingEquity) / startingEquity) * 100;
   const isPositive = allTimeReturn >= 0;
 
