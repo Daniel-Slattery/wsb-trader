@@ -106,8 +106,11 @@ export async function processBuy(
     return { skipped: true, skipReason: `All ${MAX_POSITIONS} position slots occupied` };
   }
 
-  const positionSize = calculatePositionSize(STARTING_EQUITY, POSITION_SIZE_PCT);
+  // Position size based on closed equity only (cash + open positions valued at cost, no unrealised P&L)
+  const investedAtCost = openPositions.reduce((sum, p) => sum + p.buyPrice * p.quantity, 0);
   const cash = getCash();
+  const closedEquity = cash + investedAtCost;
+  const positionSize = calculatePositionSize(closedEquity, POSITION_SIZE_PCT);
 
   if (cash < positionSize) {
     return { skipped: true, skipReason: `Insufficient cash: $${cash.toFixed(2)} < $${positionSize.toFixed(2)}` };

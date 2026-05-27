@@ -16,9 +16,10 @@ interface AgentRun {
 
 interface TodaysPickProps {
   run: AgentRun | null;
+  positionSize: number;
 }
 
-export function TodaysPick({ run }: TodaysPickProps) {
+export function TodaysPick({ run, positionSize }: TodaysPickProps) {
   if (!run) {
     return (
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
@@ -40,7 +41,7 @@ export function TodaysPick({ run }: TodaysPickProps) {
           {run.skipped ? (
             <span className="bg-yellow-900/50 text-yellow-400 text-xs px-2 py-1 rounded-full">SKIPPED</span>
           ) : (
-            <span className="bg-green-900/50 text-green-400 text-xs px-2 py-1 rounded-full font-semibold">BUY $2,000</span>
+            <span className="bg-green-900/50 text-green-400 text-xs px-2 py-1 rounded-full font-semibold">BUY ${positionSize.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
           )}
         </div>
         <p className="text-gray-400 text-xs mt-2 leading-relaxed">"{run.reasoning}"</p>

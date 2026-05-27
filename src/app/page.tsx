@@ -54,14 +54,19 @@ async function getDashboardData() {
     : null;
 
   const startingEquity = parseFloat(process.env.STARTING_EQUITY ?? '10000');
+  const positionSizePct = parseFloat(process.env.POSITION_SIZE_PCT ?? '0.20');
   const cash = latestSnapshot?.cash ?? startingEquity;
   const totalEquity = latestSnapshot?.totalEquity ?? startingEquity;
+  // Closed equity: cash + open positions valued at cost (no unrealised P&L)
+  const investedAtCost = openPositions.reduce((sum, p) => sum + p.buyPrice * p.quantity, 0);
+  const closedEquity = cash + investedAtCost;
+  const positionSize = Math.round(closedEquity * positionSizePct);
 
-  return { snapshots, enrichedPositions, tradingDaysLeft, winRate, parsedRun, cash, totalEquity, startingEquity };
+  return { snapshots, enrichedPositions, tradingDaysLeft, winRate, parsedRun, cash, totalEquity, startingEquity, positionSize };
 }
 
 export default async function DashboardPage() {
-  const { snapshots, enrichedPositions, tradingDaysLeft, winRate, parsedRun, cash, totalEquity, startingEquity } =
+  const { snapshots, enrichedPositions, tradingDaysLeft, winRate, parsedRun, cash, totalEquity, startingEquity, positionSize } =
     await getDashboardData();
 
   return (
@@ -76,10 +81,10 @@ export default async function DashboardPage() {
           startingEquity={startingEquity}
         />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
-          <div className="lg:col-span-2 h-full">
+          <div className="lg:col-span-2 grid">
             <EquityChart data={snapshots} startingEquity={startingEquity} />
           </div>
-          <TodaysPick run={parsedRun} />
+          <TodaysPick run={parsedRun} positionSize={positionSize} />
         </div>
         <OpenPositionsTable positions={enrichedPositions} tradingDaysLeft={tradingDaysLeft} />
       </div>
