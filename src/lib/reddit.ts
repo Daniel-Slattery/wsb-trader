@@ -1,4 +1,3 @@
-import Snoowrap from 'snoowrap';
 import { extractTickers } from './ticker-parser';
 
 export interface RedditTickerSignal {
@@ -8,34 +7,50 @@ export interface RedditTickerSignal {
   totalComments: number;
 }
 
-let redditClient: Snoowrap | null = null;
+interface RedditPost {
+  title: string;
+  score: number;
+  num_comments: number;
+}
 
-function getClient(): Snoowrap {
-  if (!redditClient) {
-    redditClient = new Snoowrap({
-      userAgent: 'WSBTrader/1.0',
-      clientId: process.env.REDDIT_CLIENT_ID!,
-      clientSecret: process.env.REDDIT_CLIENT_SECRET!,
-      username: process.env.REDDIT_USERNAME!,
-      password: process.env.REDDIT_PASSWORD!,
-    });
-  }
-  return redditClient;
+interface RedditListingChild {
+  data: RedditPost;
+}
+
+interface RedditListingResponse {
+  data: {
+    children: RedditListingChild[];
+    after: string | null;
+  };
+}
+
+async function fetchPage(after?: string): Promise<RedditListingResponse> {
+  const params = new URLSearchParams({ limit: '100', t: 'day' });
+  if (after) params.set('after', after);
+
+  const res = await fetch(
+    `https://www.reddit.com/r/wallstreetbets/hot.json?${params}`,
+    {
+      headers: {
+        'User-Agent': 'wsb-trader/1.0 (personal paper-trading simulator)',
+      },
+    }
+  );
+
+  if (!res.ok) throw new Error(`Reddit fetch failed: ${res.status} ${res.statusText}`);
+  return res.json() as Promise<RedditListingResponse>;
 }
 
 export async function fetchWSBSignals(): Promise<{
   signals: RedditTickerSignal[];
   rawPosts: Array<{ title: string; score: number; numComments: number }>;
 }> {
-  const client = getClient();
+  const listing = await fetchPage();
 
-  // Fetch top 100 hot posts from last 24 hours
-  const posts = await client.getSubreddit('wallstreetbets').getHot({ limit: 100 });
-
-  const rawPosts = posts.map(p => ({
-    title: p.title,
-    score: p.score,
-    numComments: p.num_comments,
+  const rawPosts = listing.data.children.map(c => ({
+    title: c.data.title,
+    score: c.data.score,
+    numComments: c.data.num_comments,
   }));
 
   // Aggregate ticker signals

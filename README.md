@@ -22,7 +22,7 @@ Both start with a single `npm run dev`.
 |---|---|
 | Framework | Next.js 15 (App Router, SSR) |
 | Database | SQLite via better-sqlite3 + Drizzle ORM |
-| Reddit | snoowrap (OAuth) |
+| Reddit | Public JSON API (no credentials) |
 | News | NewsAPI.org |
 | Prices | yahoo-finance2 |
 | AI | OpenAI GPT-4o (`response_format: json_object`) |
@@ -49,11 +49,7 @@ cp .env.local.example .env.local
 Fill in `.env.local`:
 
 ```bash
-# Reddit — create an app at https://www.reddit.com/prefs/apps (script type)
-REDDIT_CLIENT_ID=
-REDDIT_CLIENT_SECRET=
-REDDIT_USERNAME=
-REDDIT_PASSWORD=
+# Reddit — no credentials needed, uses the public JSON API
 
 # https://newsapi.org — free tier is 100 requests/day
 NEWS_API_KEY=
