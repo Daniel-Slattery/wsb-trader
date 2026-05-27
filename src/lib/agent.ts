@@ -17,7 +17,13 @@ let openaiClient: OpenAI | null = null;
 
 function getClient(): OpenAI {
   if (!openaiClient) {
-    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+    openaiClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY!,
+      // Supports GitHub Models (via Copilot subscription) by setting
+      // OPENAI_BASE_URL=https://models.inference.ai.azure.com in .env.local
+      // Leave unset to use the standard OpenAI API endpoint
+      ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}),
+    });
   }
   return openaiClient;
 }
