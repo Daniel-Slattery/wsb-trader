@@ -76,8 +76,8 @@ export default async function DashboardPage() {
           startingEquity={startingEquity}
         />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
-          <div className="lg:col-span-2">
-            <EquityChart data={snapshots} />
+          <div className="lg:col-span-2 h-full">
+            <EquityChart data={snapshots} startingEquity={startingEquity} />
           </div>
           <TodaysPick run={parsedRun} />
         </div>
