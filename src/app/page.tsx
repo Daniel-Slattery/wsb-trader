@@ -1,65 +1,87 @@
-import Image from "next/image";
+import { Nav } from './components/Nav';
+import { StatCards } from '@/components/StatCards';
+import { EquityChart } from '@/components/EquityChart';
+import { TodaysPick } from '@/components/TodaysPick';
+import { OpenPositionsTable } from '@/components/OpenPositionsTable';
+import { db, positions, equitySnapshots, agentRuns } from '@/db';
+import { eq } from 'drizzle-orm';
+import { countTradingDays } from '@/lib/trading-days';
+import { getPrices } from '@/lib/prices';
 
-export default function Home() {
+export const revalidate = 60; // revalidate every 60 seconds
+
+async function getDashboardData() {
+  const today = new Date().toISOString().split('T')[0];
+
+  // Equity snapshots for chart
+  const snapshots = db.select().from(equitySnapshots).orderBy(equitySnapshots.snapshotAt).all();
+  const latestSnapshot = snapshots.at(-1);
+
+  // Open positions with live prices
+  const openPositions = db.select().from(positions).where(eq(positions.status, 'open')).all();
+  const priceMap = openPositions.length > 0
+    ? await getPrices(openPositions.map(p => p.ticker))
+    : new Map();
+
+  const enrichedPositions = openPositions.map(pos => {
+    const current = priceMap.get(pos.ticker);
+    const currentPrice = current?.price ?? pos.buyPrice;
+    return {
+      ...pos,
+      currentPrice,
+      unrealisedPnl: (currentPrice - pos.buyPrice) * pos.quantity,
+      unrealisedPnlPct: ((currentPrice - pos.buyPrice) / pos.buyPrice) * 100,
+    };
+  });
+
+  // Trading days left per position
+  const tradingDaysLeft: Record<number, number> = {};
+  for (const pos of openPositions) {
+    const elapsed = countTradingDays(pos.buyDate, today);
+    tradingDaysLeft[pos.id] = Math.max(0, 5 - elapsed);
+  }
+
+  // Win rate
+  const closedPositions = db.select().from(positions).where(eq(positions.status, 'closed')).all();
+  const wins = closedPositions.filter(p => (p.pnl ?? 0) > 0).length;
+  const winRate = closedPositions.length > 0 ? (wins / closedPositions.length) * 100 : null;
+
+  // Today's agent run
+  const allRuns = db.select().from(agentRuns).orderBy(agentRuns.runAt).all().reverse();
+  const todaysRun = allRuns.find(r => r.runAt.startsWith(today)) ?? null;
+  const parsedRun = todaysRun
+    ? { ...todaysRun, topPicks: JSON.parse(todaysRun.topPicks), skipped: todaysRun.skipped ?? 0 }
+    : null;
+
+  const startingEquity = parseFloat(process.env.STARTING_EQUITY ?? '10000');
+  const cash = latestSnapshot?.cash ?? startingEquity;
+  const totalEquity = latestSnapshot?.totalEquity ?? startingEquity;
+
+  return { snapshots, enrichedPositions, tradingDaysLeft, winRate, parsedRun, cash, totalEquity };
+}
+
+export default async function DashboardPage() {
+  const { snapshots, enrichedPositions, tradingDaysLeft, winRate, parsedRun, cash, totalEquity } =
+    await getDashboardData();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main>
+      <Nav active="dashboard" />
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <StatCards
+          totalEquity={totalEquity}
+          cash={cash}
+          openPositions={enrichedPositions.length}
+          winRate={winRate}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+          <div className="lg:col-span-2">
+            <EquityChart data={snapshots} />
+          </div>
+          <TodaysPick run={parsedRun} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        <OpenPositionsTable positions={enrichedPositions} tradingDaysLeft={tradingDaysLeft} />
+      </div>
+    </main>
   );
 }
