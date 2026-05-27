@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev --turbopack\" \"tsx --env-file=.env.local watch worker.ts\"",
+    "dev": "concurrently \"next dev --turbopack\" \"tsx watch --env-file=.env.local worker.ts\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
