@@ -1,0 +1,46 @@
+{
+  "name": "wsb-trader",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"next dev --turbopack\" \"tsx watch worker.ts\"",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "jest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "worker:run": "tsx scripts/run-worker-now.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "concurrently": "^9.2.1",
+    "drizzle-orm": "^0.45.2",
+    "next": "16.2.6",
+    "node-cron": "^4.2.1",
+    "openai": "^6.39.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "recharts": "^3.8.1",
+    "snoowrap": "^1.23.0",
+    "yahoo-finance2": "^3.14.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20",
+    "@types/node-cron": "^3.0.11",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/snoowrap": "^1.16.1",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "jest": "^30.4.2",
+    "tailwindcss": "^4",
+    "ts-jest": "^29.4.11",
+    "tsx": "^4.22.3",
+    "typescript": "^5"
+  }
+}
