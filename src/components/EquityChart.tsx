@@ -32,7 +32,7 @@ export function EquityChart({ data, startingEquity }: EquityChartProps) {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 h-full flex flex-col">
       <p className="text-gray-400 text-sm font-semibold mb-3">Equity Growth</p>
-      <div className="flex-1 min-h-0">
+      <div className="h-64 sm:h-72 lg:h-80 xl:h-96">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={formatted}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
