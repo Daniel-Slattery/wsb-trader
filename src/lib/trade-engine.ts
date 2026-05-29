@@ -31,6 +31,18 @@ export function calculatePnl(
   return { pnl, pnlPct };
 }
 
+export function hasOpenTicker(openPositions: Array<{ ticker: string }>, ticker: string): boolean {
+  return openPositions.some(pos => pos.ticker.toUpperCase() === ticker.toUpperCase());
+}
+
+export function getBuyCandidates<T extends { ticker: string }>(
+  picks: T[],
+  openPositions: Array<{ ticker: string }>
+): T[] {
+  const openTickers = new Set(openPositions.map(pos => pos.ticker.toUpperCase()));
+  return picks.filter(pick => !openTickers.has(pick.ticker.toUpperCase()));
+}
+
 // --- State helpers ---
 
 export function getCash(): number {
@@ -110,6 +122,10 @@ export async function processBuy(
     return { skipped: true, skipReason: `All ${MAX_POSITIONS} position slots occupied` };
   }
 
+  if (hasOpenTicker(openPositions, ticker)) {
+    return { skipped: true, skipReason: `Already holding open position in ${ticker}` };
+  }
+
   // Position size based on closed equity only (cash + open positions valued at cost, no unrealised P&L)
   const investedAtCost = openPositions.reduce((sum, p) => sum + p.buyPrice * p.quantity, 0);
   const cash = getCash();
@@ -162,6 +178,40 @@ export async function processBuy(
   console.log(`BUY ${ticker}: ${quantity} shares @ $${current.price.toFixed(2)} | Cost: $${actualCost.toFixed(2)}`);
 
   return { skipped: false };
+}
+
+export async function processBuyFromPicks(
+  agentRunId: number,
+  picks: Array<{ ticker: string }>,
+  today: string
+): Promise<{ skipped: boolean; ticker?: string; skipReason?: string }> {
+  const openPositions = getOpenPositions();
+
+  if (openPositions.length >= MAX_POSITIONS) {
+    return { skipped: true, skipReason: `All ${MAX_POSITIONS} position slots occupied` };
+  }
+
+  const candidates = getBuyCandidates(picks, openPositions);
+  if (candidates.length === 0) {
+    return { skipped: true, skipReason: 'All agent picks are already open positions' };
+  }
+
+  let lastSkipReason: string | undefined;
+  for (const pick of candidates) {
+    const result = await processBuy(agentRunId, pick.ticker, today);
+    if (!result.skipped) {
+      return { skipped: false, ticker: pick.ticker };
+    }
+
+    lastSkipReason = result.skipReason;
+    if (result.skipReason?.startsWith('All ') || result.skipReason?.startsWith('Insufficient cash')) {
+      return result;
+    }
+
+    console.warn(`Buy candidate ${pick.ticker} skipped: ${result.skipReason}`);
+  }
+
+  return { skipped: true, skipReason: lastSkipReason ?? 'No buyable agent picks' };
 }
 
 // --- Equity snapshot ---

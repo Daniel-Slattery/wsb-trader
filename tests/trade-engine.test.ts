@@ -1,4 +1,4 @@
-import { calculatePositionSize, calculateQuantity, calculatePnl } from '../src/lib/trade-engine';
+import { calculatePositionSize, calculateQuantity, calculatePnl, getBuyCandidates, hasOpenTicker } from '../src/lib/trade-engine';
 
 describe('calculatePositionSize', () => {
   it('returns 20% of starting equity', () => {
@@ -36,5 +36,31 @@ describe('calculatePnl', () => {
     const result = calculatePnl(100, 80, 10);
     expect(result.pnl).toBe(-200);
     expect(result.pnlPct).toBeCloseTo(-20);
+  });
+});
+
+describe('hasOpenTicker', () => {
+  it('matches open tickers case-insensitively', () => {
+    expect(hasOpenTicker([{ ticker: 'NVDA' }, { ticker: 'AMD' }], 'nvda')).toBe(true);
+  });
+
+  it('returns false when ticker is not already open', () => {
+    expect(hasOpenTicker([{ ticker: 'NVDA' }, { ticker: 'AMD' }], 'TSLA')).toBe(false);
+  });
+});
+
+describe('getBuyCandidates', () => {
+  it('filters out already-open tickers while preserving rank order', () => {
+    const picks = [{ ticker: 'NVDA' }, { ticker: 'AMD' }, { ticker: 'TSLA' }, { ticker: 'META' }];
+    const openPositions = [{ ticker: 'NVDA' }, { ticker: 'AMD' }];
+
+    expect(getBuyCandidates(picks, openPositions)).toEqual([{ ticker: 'TSLA' }, { ticker: 'META' }]);
+  });
+
+  it('handles open ticker matching case-insensitively', () => {
+    const picks = [{ ticker: 'nvda' }, { ticker: 'AMD' }];
+    const openPositions = [{ ticker: 'NVDA' }];
+
+    expect(getBuyCandidates(picks, openPositions)).toEqual([{ ticker: 'AMD' }]);
   });
 });

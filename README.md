@@ -48,7 +48,7 @@ Two processes share a SQLite database:
 |---|---|
 | Framework | Next.js 16 (App Router, SSR) |
 | Database | SQLite via better-sqlite3 + Drizzle ORM |
-| Reddit | Public JSON API — no credentials needed |
+| Reddit | OAuth API with RSS fallback |
 | News | NewsAPI.org |
 | Prices | yahoo-finance2 |
 | AI | GPT-4o via GitHub Models (free with Copilot) or OpenAI API |
@@ -78,7 +78,10 @@ cp .env.local.example .env.local
 Fill in `.env.local`:
 
 ```bash
-# Reddit — no credentials needed, uses the public JSON API
+# Reddit — optional OAuth credentials; falls back to RSS if omitted/unavailable
+REDDIT_CLIENT_ID=
+REDDIT_CLIENT_SECRET=
+REDDIT_USER_AGENT=wsb-trader/1.0 by u/YOUR_REDDIT_USERNAME
 
 # https://newsapi.org — free tier is 100 requests/day
 NEWS_API_KEY=

@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { fetchWSBSignals } from './src/lib/reddit';
 import { fetchNewsHeadlines } from './src/lib/news';
 import { runAgent } from './src/lib/agent';
-import { processSells, processBuy, takeEquitySnapshot } from './src/lib/trade-engine';
+import { processSells, processBuyFromPicks, takeEquitySnapshot } from './src/lib/trade-engine';
 import { db, agentRuns } from './src/db';
 
 const TZ = process.env.CRON_TIMEZONE ?? 'America/New_York';
@@ -13,8 +13,8 @@ async function runAnalysis(): Promise<void> {
   console.log('[8:30am] Starting analysis run...');
 
   try {
-    const { signals, rawPosts } = await fetchWSBSignals();
-    console.log(`Reddit: found signals for ${signals.length} tickers`);
+    const { signals, rawPosts, source } = await fetchWSBSignals();
+    console.log(`Reddit (${source}): found signals for ${signals.length} tickers`);
 
     const topTickers = signals.slice(0, 10).map(s => s.ticker);
     const headlines = await fetchNewsHeadlines(topTickers);
@@ -65,17 +65,19 @@ async function runTradeExecution(): Promise<void> {
       return;
     }
 
-    // Step 3: simulate buy
-    const { skipped, skipReason } = await processBuy(
-      todaysRun.id,
-      todaysRun.selectedTicker,
-      today
-    );
+    // Step 3: simulate buy from the highest-ranked pick that is not already open
+    const topPicks = JSON.parse(todaysRun.topPicks) as Array<{ ticker: string }>;
+    const { skipped, ticker, skipReason } = await processBuyFromPicks(todaysRun.id, topPicks, today);
 
     if (skipped) {
       console.warn(`[9:35am] Buy skipped: ${skipReason}`);
       db.update(agentRuns)
         .set({ skipped: 1, skipReason })
+        .where(eq(agentRuns.id, todaysRun.id))
+        .run();
+    } else if (ticker && ticker !== todaysRun.selectedTicker) {
+      db.update(agentRuns)
+        .set({ selectedTicker: ticker })
         .where(eq(agentRuns.id, todaysRun.id))
         .run();
     }

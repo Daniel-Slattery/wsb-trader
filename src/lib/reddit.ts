@@ -24,33 +24,132 @@ interface RedditListingResponse {
   };
 }
 
-async function fetchPage(after?: string): Promise<RedditListingResponse> {
+interface RedditTokenResponse {
+  access_token: string;
+  expires_in: number;
+}
+
+let cachedToken: { value: string; expiresAt: number } | null = null;
+
+function getUserAgent(): string {
+  return process.env.REDDIT_USER_AGENT ?? 'wsb-trader/1.0 (personal paper-trading simulator)';
+}
+
+function decodeXmlEntities(value: string): string {
+  return value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, num: string) => String.fromCodePoint(parseInt(num, 10)));
+}
+
+async function getAccessToken(): Promise<string> {
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
+    return cachedToken.value;
+  }
+
+  const clientId = process.env.REDDIT_CLIENT_ID;
+  const clientSecret = process.env.REDDIT_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error('Missing REDDIT_CLIENT_ID or REDDIT_CLIENT_SECRET');
+  }
+
+  const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  const res = await fetch('https://www.reddit.com/api/v1/access_token', {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': getUserAgent(),
+    },
+    body: new URLSearchParams({ grant_type: 'client_credentials' }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Reddit token fetch failed: ${res.status} ${res.statusText} ${body.slice(0, 200)}`);
+  }
+
+  const token = await res.json() as RedditTokenResponse;
+  cachedToken = {
+    value: token.access_token,
+    expiresAt: Date.now() + token.expires_in * 1000,
+  };
+
+  return cachedToken.value;
+}
+
+async function fetchOAuthPage(after?: string): Promise<RedditListingResponse> {
   const params = new URLSearchParams({ limit: '100', t: 'day' });
   if (after) params.set('after', after);
 
+  const token = await getAccessToken();
+
   const res = await fetch(
-    `https://www.reddit.com/r/wallstreetbets/hot.json?${params}`,
+    `https://oauth.reddit.com/r/wallstreetbets/hot?${params}`,
     {
       headers: {
-        'User-Agent': 'wsb-trader/1.0 (personal paper-trading simulator)',
+        Authorization: `Bearer ${token}`,
+        'User-Agent': getUserAgent(),
       },
     }
   );
 
-  if (!res.ok) throw new Error(`Reddit fetch failed: ${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Reddit OAuth fetch failed: ${res.status} ${res.statusText} ${body.slice(0, 200)}`);
+  }
+
   return res.json() as Promise<RedditListingResponse>;
+}
+
+async function fetchRssPosts(): Promise<RedditPost[]> {
+  const res = await fetch('https://www.reddit.com/r/wallstreetbets/.rss', {
+    headers: { 'User-Agent': getUserAgent() },
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Reddit RSS fetch failed: ${res.status} ${res.statusText} ${body.slice(0, 200)}`);
+  }
+
+  const xml = await res.text();
+  return Array.from(xml.matchAll(/<entry[\s\S]*?<\/entry>/g))
+    .map(match => {
+      const title = match[0].match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1];
+      return title ? { title: decodeXmlEntities(title).trim(), score: 0, num_comments: 0 } : null;
+    })
+    .filter((post): post is RedditPost => Boolean(post));
+}
+
+async function fetchPosts(): Promise<{ posts: RedditPost[]; source: 'oauth' | 'rss' }> {
+  if (process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET) {
+    try {
+      const listing = await fetchOAuthPage();
+      return { posts: listing.data.children.map(c => c.data), source: 'oauth' };
+    } catch (err) {
+      console.warn('Reddit OAuth fetch failed, falling back to RSS:', err);
+    }
+  }
+
+  return { posts: await fetchRssPosts(), source: 'rss' };
 }
 
 export async function fetchWSBSignals(): Promise<{
   signals: RedditTickerSignal[];
   rawPosts: Array<{ title: string; score: number; numComments: number }>;
+  source: 'oauth' | 'rss';
 }> {
-  const listing = await fetchPage();
+  const { posts, source } = await fetchPosts();
 
-  const rawPosts = listing.data.children.map(c => ({
-    title: c.data.title,
-    score: c.data.score,
-    numComments: c.data.num_comments,
+  const rawPosts = posts.map(post => ({
+    title: post.title,
+    score: post.score,
+    numComments: post.num_comments,
   }));
 
   // Aggregate ticker signals
@@ -79,5 +178,5 @@ export async function fetchWSBSignals(): Promise<{
     .sort((a, b) => b.totalScore - a.totalScore)
     .slice(0, 20);
 
-  return { signals, rawPosts };
+  return { signals, rawPosts, source };
 }

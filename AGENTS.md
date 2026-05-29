@@ -70,7 +70,7 @@ wsb-trader/
 │       ├── agent.ts            # GPT-4o prompt + OpenAI call → top 5 picks
 │       ├── news.ts             # NewsAPI fetcher (last 24h headlines)
 │       ├── prices.ts           # Yahoo Finance — single + batch price fetch
-│       ├── reddit.ts           # r/wallstreetbets public JSON scraper
+│       ├── reddit.ts           # r/wallstreetbets OAuth fetcher with RSS fallback
 │       ├── ticker-parser.ts    # Regex ticker extractor ($NVDA / NVDA), has blocklist
 │       ├── trade-engine.ts     # Core trading logic + pure calc helpers
 │       └── trading-days.ts     # NYSE calendar: countTradingDays, addTradingDays, isMarketOpen

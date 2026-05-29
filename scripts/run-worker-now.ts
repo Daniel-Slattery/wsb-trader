@@ -5,7 +5,7 @@
 import { fetchWSBSignals } from '../src/lib/reddit';
 import { fetchNewsHeadlines } from '../src/lib/news';
 import { runAgent } from '../src/lib/agent';
-import { processSells, processBuy, takeEquitySnapshot } from '../src/lib/trade-engine';
+import { processSells, processBuyFromPicks, takeEquitySnapshot } from '../src/lib/trade-engine';
 import { db, agentRuns } from '../src/db';
 import { eq } from 'drizzle-orm';
 
@@ -14,7 +14,8 @@ async function main() {
   console.log(`Manual run for ${today}`);
 
   // Analysis
-  const { signals } = await fetchWSBSignals();
+  const { signals, source } = await fetchWSBSignals();
+  console.log(`Reddit (${source}): found signals for ${signals.length} tickers`);
   const headlines = await fetchNewsHeadlines(signals.slice(0, 10).map(s => s.ticker));
   const agentResult = await runAgent(signals, headlines);
 
@@ -35,11 +36,13 @@ async function main() {
   // Trade execution
   await processSells(today);
 
-  const { skipped, skipReason } = await processBuy(runRecord.id, agentResult.picks[0].ticker, today);
+  const { skipped, ticker, skipReason } = await processBuyFromPicks(runRecord.id, agentResult.picks, today);
 
   if (skipped) {
     console.warn('Buy skipped:', skipReason);
     db.update(agentRuns).set({ skipped: 1, skipReason }).where(eq(agentRuns.id, runRecord.id)).run();
+  } else if (ticker && ticker !== agentResult.picks[0].ticker) {
+    db.update(agentRuns).set({ selectedTicker: ticker }).where(eq(agentRuns.id, runRecord.id)).run();
   }
 
   await takeEquitySnapshot();
