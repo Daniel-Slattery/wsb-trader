@@ -17,7 +17,7 @@ export const positions = sqliteTable('positions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   ticker: text('ticker').notNull(),
   buyPrice: real('buy_price').notNull(),
-  quantity: integer('quantity').notNull(),
+  quantity: real('quantity').notNull(),
   buyDate: text('buy_date').notNull(),        // ISO 8601 date e.g. "2026-05-27"
   sellPrice: real('sell_price'),
   sellDate: text('sell_date'),
@@ -32,7 +32,7 @@ export const trades = sqliteTable('trades', {
   ticker: text('ticker').notNull(),
   action: text('action').notNull(),           // 'buy' | 'sell'
   price: real('price').notNull(),
-  quantity: integer('quantity').notNull(),
+  quantity: real('quantity').notNull(),
   executedAt: text('executed_at').notNull().default(sql`(datetime('now'))`),
   positionId: integer('position_id').references(() => positions.id),
 });

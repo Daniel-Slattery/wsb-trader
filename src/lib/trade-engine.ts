@@ -6,6 +6,7 @@ import { countTradingDays } from './trading-days';
 const STARTING_EQUITY = parseFloat(process.env.STARTING_EQUITY ?? '10000');
 const POSITION_SIZE_PCT = parseFloat(process.env.POSITION_SIZE_PCT ?? '0.20');
 const MAX_POSITIONS = 5;
+const QUANTITY_DECIMALS = 6;
 
 // --- Pure calculation helpers (exported for testing) ---
 
@@ -14,7 +15,10 @@ export function calculatePositionSize(startingEquity: number, pct: number): numb
 }
 
 export function calculateQuantity(positionSize: number, price: number): number {
-  return Math.floor(positionSize / price);
+  if (positionSize <= 0 || price <= 0) return 0;
+
+  const multiplier = 10 ** QUANTITY_DECIMALS;
+  return Math.floor((positionSize / price) * multiplier) / multiplier;
 }
 
 export function calculatePnl(

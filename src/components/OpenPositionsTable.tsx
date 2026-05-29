@@ -15,6 +15,10 @@ interface OpenPositionsTableProps {
 }
 
 export function OpenPositionsTable({ positions, tradingDaysLeft }: OpenPositionsTableProps) {
+  const formatQuantity = (quantity: number) => {
+    return Number.isInteger(quantity) ? quantity.toString() : quantity.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+  };
+
   if (positions.length === 0) {
     return (
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
@@ -31,7 +35,7 @@ export function OpenPositionsTable({ positions, tradingDaysLeft }: OpenPositions
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800">
-              {['Ticker', 'Buy Price', 'Current', 'P&L', 'Invested', 'Days Left'].map(h => (
+              {['Ticker', 'Buy Price', 'Current', 'Qty', 'P&L', 'Invested', 'Days Left'].map(h => (
                 <th key={h} className="text-gray-500 text-xs font-medium py-2 text-right first:text-left">{h}</th>
               ))}
             </tr>
@@ -46,6 +50,7 @@ export function OpenPositionsTable({ positions, tradingDaysLeft }: OpenPositions
                   <td className="py-2 text-blue-400 font-bold">{pos.ticker}</td>
                   <td className="py-2 text-gray-300 text-right">${pos.buyPrice.toFixed(2)}</td>
                   <td className="py-2 text-gray-300 text-right">${pos.currentPrice.toFixed(2)}</td>
+                  <td className="py-2 text-gray-300 text-right">{formatQuantity(pos.quantity)}</td>
                   <td className={`py-2 text-right font-medium ${isGain ? 'text-green-400' : 'text-red-400'}`}>
                     {isGain ? '+' : ''}${pos.unrealisedPnl.toFixed(2)}
                     <span className="text-xs ml-1">({isGain ? '+' : ''}{pos.unrealisedPnlPct.toFixed(1)}%)</span>

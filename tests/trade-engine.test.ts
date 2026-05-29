@@ -11,12 +11,17 @@ describe('calculatePositionSize', () => {
 });
 
 describe('calculateQuantity', () => {
-  it('floors to whole shares', () => {
-    expect(calculateQuantity(2000, 150.33)).toBe(13);
+  it('returns fractional shares rounded down to 6 decimals', () => {
+    expect(calculateQuantity(2000, 150.33)).toBe(13.304064);
   });
 
-  it('returns 0 if price exceeds position size', () => {
-    expect(calculateQuantity(100, 500)).toBe(0);
+  it('allows fractional shares when price exceeds position size', () => {
+    expect(calculateQuantity(100, 500)).toBe(0.2);
+  });
+
+  it('returns 0 for invalid inputs', () => {
+    expect(calculateQuantity(100, 0)).toBe(0);
+    expect(calculateQuantity(0, 500)).toBe(0);
   });
 });
 
