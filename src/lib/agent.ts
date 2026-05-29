@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { RedditTickerSignal } from './reddit';
+import type { RedditRawPost, RedditTickerSignal } from './reddit';
 import type { NewsHeadline } from './news';
 
 export interface AgentPick {
@@ -30,10 +30,18 @@ function getClient(): OpenAI {
 
 function buildPrompt(
   redditSignals: RedditTickerSignal[],
+  rawRedditPosts: RedditRawPost[],
   headlines: NewsHeadline[]
 ): string {
   const redditSection = redditSignals
     .map(s => `- ${s.ticker}: ${s.mentions} mentions, ${s.totalScore.toLocaleString()} upvotes, ${s.totalComments.toLocaleString()} comments`)
+    .join('\n');
+
+  const rawRedditSection = rawRedditPosts
+    .slice()
+    .sort((a, b) => (b.score + b.numComments) - (a.score + a.numComments))
+    .slice(0, 25)
+    .map(p => `- "${p.title}" (${p.score.toLocaleString()} upvotes, ${p.numComments.toLocaleString()} comments)`)
     .join('\n');
 
   const newsSection = headlines
@@ -49,11 +57,17 @@ function buildPrompt(
 REDDIT SIGNALS (r/wallstreetbets, last 24h):
 ${redditSection}
 
+TOP RAW REDDIT POSTS (r/wallstreetbets, last 24h):
+${rawRedditSection}
+
 NEWS HEADLINES (last 24h):
 ${newsSection}
 
 Instructions:
 - Only include tickers that trade on US exchanges (NYSE/NASDAQ)
+- Use raw Reddit posts to infer obvious company-name mentions and meme proxies that ticker extraction may miss (e.g. Microsoft -> MSFT, Dell -> DELL, Virgin Galactic -> SPCE)
+- Do not choose private/non-tradable companies like SpaceX unless posts clearly identify a tradable public proxy
+- Prefer posts that imply an upcoming or continuing move over posts that are only celebrating gains after a move; penalize tickers whose Reddit signal is mostly retrospective gain screenshots
 - Rank by combined momentum: social hype + news sentiment
 - Score each pick 0–100 (100 = highest conviction)
 - Keep each reasoning to 1–2 sentences
@@ -69,10 +83,11 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
 
 export async function runAgent(
   redditSignals: RedditTickerSignal[],
+  rawRedditPosts: RedditRawPost[],
   headlines: NewsHeadline[]
 ): Promise<AgentResult> {
   const client = getClient();
-  const prompt = buildPrompt(redditSignals, headlines);
+  const prompt = buildPrompt(redditSignals, rawRedditPosts, headlines);
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o',

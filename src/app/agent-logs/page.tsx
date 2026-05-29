@@ -14,6 +14,7 @@ export default function AgentLogsPage() {
     .map(r => ({
       ...r,
       topPicks: JSON.parse(r.topPicks),
+      rawReddit: r.rawReddit ? JSON.parse(r.rawReddit) : null,
     }));
 
   return (

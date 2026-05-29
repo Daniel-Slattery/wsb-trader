@@ -13,14 +13,17 @@ async function runAnalysis(): Promise<void> {
   console.log('[8:30am] Starting analysis run...');
 
   try {
-    const { signals, rawPosts, source } = await fetchWSBSignals();
-    console.log(`Reddit (${source}): found signals for ${signals.length} tickers`);
+    const { signals, rawPosts, metadata } = await fetchWSBSignals();
+    console.log(`Reddit (${metadata.source}): fetched ${metadata.postCount} posts, found signals for ${signals.length} tickers`);
+    if (metadata.fallbackReason) {
+      console.warn(`Reddit fallback reason: ${metadata.fallbackReason}`);
+    }
 
     const topTickers = signals.slice(0, 10).map(s => s.ticker);
     const headlines = await fetchNewsHeadlines(topTickers);
     console.log(`News: fetched ${headlines.length} headlines`);
 
-    const agentResult = await runAgent(signals, headlines);
+    const agentResult = await runAgent(signals, rawPosts, headlines);
     console.log(`Agent picks: ${agentResult.picks.map(p => p.ticker).join(', ')}`);
     console.log(`Selected: ${agentResult.picks[0].ticker}`);
 
@@ -29,7 +32,7 @@ async function runAnalysis(): Promise<void> {
         topPicks: JSON.stringify(agentResult.picks),
         selectedTicker: agentResult.picks[0].ticker,
         reasoning: agentResult.summary,
-        rawReddit: JSON.stringify(signals),
+        rawReddit: JSON.stringify({ ...metadata, signals, rawPosts }),
         rawNews: JSON.stringify(headlines),
         skipped: 0,
       })

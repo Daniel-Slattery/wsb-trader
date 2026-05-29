@@ -50,7 +50,12 @@ async function getDashboardData() {
   const allRuns = db.select().from(agentRuns).orderBy(agentRuns.runAt).all().reverse();
   const todaysRun = allRuns.find(r => r.runAt.startsWith(today)) ?? null;
   const parsedRun = todaysRun
-    ? { ...todaysRun, topPicks: JSON.parse(todaysRun.topPicks), skipped: todaysRun.skipped ?? 0 }
+    ? {
+        ...todaysRun,
+        topPicks: JSON.parse(todaysRun.topPicks),
+        rawReddit: todaysRun.rawReddit ? JSON.parse(todaysRun.rawReddit) : null,
+        skipped: todaysRun.skipped ?? 0,
+      }
     : null;
 
   const startingEquity = parseFloat(process.env.STARTING_EQUITY ?? '10000');

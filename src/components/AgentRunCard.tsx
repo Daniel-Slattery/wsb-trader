@@ -8,20 +8,52 @@ interface AgentPick {
   reasoning: string;
 }
 
+interface RedditTickerSignal {
+  ticker: string;
+  mentions: number;
+  totalScore: number;
+  totalComments: number;
+}
+
+interface RedditInput {
+  source?: string;
+  postCount?: number;
+  fallbackReason?: string;
+  cachedAt?: string;
+  cacheAgeHours?: number;
+  signals?: RedditTickerSignal[];
+}
+
 interface AgentRun {
   id: number;
   runAt: string;
   selectedTicker: string;
   reasoning: string;
   topPicks: AgentPick[];
+  rawReddit?: RedditInput | RedditTickerSignal[] | null;
   skipped: number | null;
   skipReason: string | null;
+}
+
+function getRedditInputSummary(rawReddit: AgentRun['rawReddit']): string | null {
+  if (!rawReddit) return null;
+
+  if (Array.isArray(rawReddit)) {
+    return `Reddit: legacy format, ${rawReddit.length} ticker signals`;
+  }
+
+  const source = rawReddit.source ?? 'unknown';
+  const postCount = rawReddit.postCount ?? 0;
+  const signalCount = rawReddit.signals?.length ?? 0;
+  const cacheAge = rawReddit.cacheAgeHours === undefined ? '' : `, ${rawReddit.cacheAgeHours}h old`;
+  return `Reddit: ${source}, ${postCount} posts, ${signalCount} ticker signals${cacheAge}`;
 }
 
 export function AgentRunCard({ run }: { run: AgentRun }) {
   const [expanded, setExpanded] = useState(false);
   const date = run.runAt.slice(0, 10);
   const time = run.runAt.slice(11, 16);
+  const redditInputSummary = getRedditInputSummary(run.rawReddit);
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-3">
@@ -44,7 +76,13 @@ export function AgentRunCard({ run }: { run: AgentRun }) {
 
       {expanded && (
         <div className="mt-4 border-t border-gray-800 pt-4">
-          <p className="text-gray-400 text-sm leading-relaxed mb-4">"{run.reasoning}"</p>
+          {redditInputSummary && (
+            <p className="text-gray-500 text-xs mb-2">{redditInputSummary}</p>
+          )}
+          {run.rawReddit && !Array.isArray(run.rawReddit) && run.rawReddit.fallbackReason && (
+            <p className="text-yellow-500/80 text-xs mb-3">Fallback: {run.rawReddit.fallbackReason}</p>
+          )}
+          <p className="text-gray-400 text-sm leading-relaxed mb-4">&quot;{run.reasoning}&quot;</p>
 
           <p className="text-gray-600 text-xs uppercase tracking-wider mb-2">All picks</p>
           <div className="flex flex-col gap-2 mb-4">

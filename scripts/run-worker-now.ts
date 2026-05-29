@@ -14,17 +14,20 @@ async function main() {
   console.log(`Manual run for ${today}`);
 
   // Analysis
-  const { signals, source } = await fetchWSBSignals();
-  console.log(`Reddit (${source}): found signals for ${signals.length} tickers`);
+  const { signals, rawPosts, metadata } = await fetchWSBSignals();
+  console.log(`Reddit (${metadata.source}): fetched ${metadata.postCount} posts, found signals for ${signals.length} tickers`);
+  if (metadata.fallbackReason) {
+    console.warn(`Reddit fallback reason: ${metadata.fallbackReason}`);
+  }
   const headlines = await fetchNewsHeadlines(signals.slice(0, 10).map(s => s.ticker));
-  const agentResult = await runAgent(signals, headlines);
+  const agentResult = await runAgent(signals, rawPosts, headlines);
 
   const runRecord = db.insert(agentRuns)
     .values({
       topPicks: JSON.stringify(agentResult.picks),
       selectedTicker: agentResult.picks[0].ticker,
       reasoning: agentResult.summary,
-      rawReddit: JSON.stringify(signals),
+      rawReddit: JSON.stringify({ ...metadata, signals, rawPosts }),
       rawNews: JSON.stringify(headlines),
       skipped: 0,
     })

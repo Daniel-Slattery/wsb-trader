@@ -78,7 +78,7 @@ cp .env.local.example .env.local
 Fill in `.env.local`:
 
 ```bash
-# Reddit — optional OAuth credentials; falls back to RSS if omitted/unavailable
+# Reddit — optional OAuth credentials; falls back to Old Reddit, then RSS if omitted/unavailable
 REDDIT_CLIENT_ID=
 REDDIT_CLIENT_SECRET=
 REDDIT_USER_AGENT=wsb-trader/1.0 by u/YOUR_REDDIT_USERNAME
